@@ -16,6 +16,7 @@ import { SocialSection } from './components/SocialSection';
 import { Footer } from './components/Footer';
 import { ArticleModal } from './components/ArticleModal';
 import { ShareModal } from './components/ShareModal';
+import { AdminDashboardModal } from './components/AdminDashboardModal';
 import { MOCK_CONTENT } from './data/mockData';
 import { ContentItem, Category, Province, TimeFilter, FeedTab } from './types';
 
@@ -39,6 +40,7 @@ export default function App() {
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [savedOpen, setSavedOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState<ContentItem | null>(null);
   const [shareItem, setShareItem] = useState<ContentItem | null>(null);
 
@@ -77,7 +79,6 @@ export default function App() {
     if (feedTab === 'VIRALI') {
       matchesFeedTab = item.category === 'VIRALI' || item.badge === 'VIRALE' || item.badge === 'TRENDING';
     } else if (feedTab === 'PER TE') {
-      // Personalized simulation based on saved or popular categories
       matchesFeedTab = item.views > 100000;
     }
 
@@ -169,7 +170,7 @@ export default function App() {
       <SubmitContent />
 
       {/* Footer */}
-      <Footer setActiveTab={setActiveTab} />
+      <Footer setActiveTab={setActiveTab} onOpenAdmin={() => setAdminOpen(true)} />
 
       {/* Mobile Bottom Navigation Bar */}
       <MobileBottomNav
@@ -195,6 +196,12 @@ export default function App() {
         savedItems={savedItems}
         onSelectContent={(item) => setSelectedArticle(item)}
         onRemoveSave={handleRemoveSave}
+      />
+
+      {/* Admin Dashboard Modal */}
+      <AdminDashboardModal
+        isOpen={adminOpen}
+        onClose={() => setAdminOpen(false)}
       />
 
       {/* Article Detail Modal */}

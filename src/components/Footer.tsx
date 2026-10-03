@@ -1,11 +1,12 @@
 import React from 'react';
-import { Instagram, Youtube, Facebook, ArrowUp } from 'lucide-react';
+import { Instagram, Youtube, Facebook, ArrowUp, ShieldCheck } from 'lucide-react';
 
 interface FooterProps {
   setActiveTab: (tab: string) => void;
+  onOpenAdmin: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
+export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenAdmin }) => {
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -94,6 +95,15 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
               <li><a href="#about" onClick={(e) => {e.preventDefault(); alert("Il Meglio del Web è il media hub digitale di riferimento per la Sicilia.");}} className="hover:text-white transition-colors">Chi siamo</a></li>
               <li><a href="#contacts" onClick={(e) => {e.preventDefault(); alert("Contatta la redazione: redazione@ilmegliodelweb.it");}} className="hover:text-white transition-colors">Contatti</a></li>
               <li><a href="#privacy" onClick={(e) => {e.preventDefault(); alert("Informativa sulla privacy conforme al GDPR.");}} className="hover:text-white transition-colors">Privacy</a></li>
+              <li className="pt-2">
+                <button
+                  onClick={onOpenAdmin}
+                  className="inline-flex items-center gap-1.5 text-xs text-[#FFD400] font-bold bg-[#141414] hover:bg-[#1E1E1E] border border-[#262626] px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Area Admin</span>
+                </button>
+              </li>
             </ul>
           </div>
 

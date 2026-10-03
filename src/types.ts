@@ -25,3 +25,32 @@ export interface ContentItem {
   };
   isHeroFeature?: boolean;
 }
+
+export type ContributionStatus = 'NEW' | 'IN_REVIEW' | 'APPROVED' | 'REJECTED' | 'ARCHIVED';
+
+export interface TimelineEvent {
+  date: string;
+  action: string;
+  author: string;
+  note?: string;
+}
+
+export interface ContributionItem {
+  id: string;
+  referenceCode: string;
+  name: string;
+  email: string;
+  city: string;
+  category: string;
+  contentUrl: string;
+  mediaUrl?: string;
+  mediaType?: 'image' | 'video';
+  description: string;
+  status: ContributionStatus;
+  createdAt: string;
+  updatedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  rejectionReason?: string;
+  timeline: TimelineEvent[];
+}
