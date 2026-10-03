@@ -1,0 +1,6 @@
+{
+  "name": "Il Meglio del Web",
+  "description": "Il meglio del web siciliano, tutto in un unico posto.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
