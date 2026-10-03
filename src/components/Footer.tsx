@@ -98,9 +98,9 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenAdmin }) => 
               <li className="pt-2">
                 <button
                   onClick={onOpenAdmin}
-                  className="inline-flex items-center gap-1.5 text-xs text-[#FFD400] font-bold bg-[#141414] hover:bg-[#1E1E1E] border border-[#262626] px-3 py-1.5 rounded-lg transition-colors"
+                  className="inline-flex items-center gap-2 text-xs text-[#FFD400] font-syne font-bold bg-[#111111] hover:bg-[#1A1A1A] border border-[#222222] hover:border-[#FFD400]/40 px-3.5 py-2 rounded-xl transition-all shadow-sm group"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <ShieldCheck className="w-4 h-4 text-[#FFD400] group-hover:scale-110 transition-transform" />
                   <span>Area Admin</span>
                 </button>
               </li>

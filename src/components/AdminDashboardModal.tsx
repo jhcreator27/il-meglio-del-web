@@ -77,8 +77,8 @@ const INITIAL_CONTRIBUTIONS: ContributionItem[] = [
 
 export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen, onClose }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [adminEmail, setAdminEmail] = useState('giuliam.anzalone22@gmail.com');
-  const [adminPassword, setAdminPassword] = useState('Palermo@26');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
   const [activeNav, setActiveNav] = useState<string>('dashboard');
