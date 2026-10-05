@@ -1,5 +1,6 @@
 import React from 'react';
 import { Compass, Shield, Heart } from 'lucide-react';
+import { PollWidget } from './PollWidget';
 
 export const SiciliaSection: React.FC = () => {
   return (
@@ -10,7 +11,7 @@ export const SiciliaSection: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-16">
           
           {/* Left Text Column */}
           <div>
@@ -62,7 +63,7 @@ export const SiciliaSection: React.FC = () => {
           </div>
 
           {/* Right Image Composition */}
-          <div className="relative">
+          <div className="space-y-6">
             <div className="relative rounded-3xl overflow-hidden border border-[#222222] bg-[#111111] shadow-2xl aspect-[4/3]">
               <img
                 src="/src/assets/images/sicilia_traditions_banner_1791018886658.jpg"
@@ -81,6 +82,9 @@ export const SiciliaSection: React.FC = () => {
                 </p>
               </div>
             </div>
+
+            {/* Poll Widget Added Here */}
+            <PollWidget />
           </div>
 
         </div>
