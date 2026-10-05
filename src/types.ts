@@ -54,3 +54,17 @@ export interface ContributionItem {
   rejectionReason?: string;
   timeline: TimelineEvent[];
 }
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  category: string;
+  author: string;
+  date: string;
+  readTime: string;
+  image: string;
+  views: number;
+}

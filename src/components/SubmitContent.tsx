@@ -291,6 +291,33 @@ export const SubmitContent: React.FC = () => {
     const randomSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
     const generatedCode = `WEB-2026-${randomSuffix}`;
 
+    const newContrib = {
+      id: 'contrib-' + Date.now(),
+      referenceCode: generatedCode,
+      name: formData.name,
+      email: formData.email,
+      city: formData.city,
+      category: formData.category,
+      contentUrl: formData.link,
+      mediaUrl: previewUrl || undefined,
+      mediaType: selectedFile && selectedFile.type.includes('video') ? 'video' : 'image',
+      description: formData.description,
+      status: 'NEW' as const,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      timeline: [
+        { date: new Date().toLocaleString('it-IT'), action: 'Contributo ricevuto', author: formData.name }
+      ]
+    };
+
+    try {
+      const existing = JSON.parse(localStorage.getItem('mw_admin_contributions') || '[]');
+      localStorage.setItem('mw_admin_contributions', JSON.stringify([newContrib, ...existing]));
+      window.dispatchEvent(new Event('mw_new_contribution'));
+    } catch {
+      // ignore
+    }
+
     try {
       const targetUrl = localStorage.getItem('mw_formbold_url') || 'https://formbold.com/s/6707D';
       

@@ -11,16 +11,19 @@ import { SavedPage } from './components/SavedPage';
 import { NewsGrid } from './components/NewsGrid';
 import { VideoGrid } from './components/VideoGrid';
 import { SiciliaSection } from './components/SiciliaSection';
+import { BlogSection } from './components/BlogSection';
 import { SubmitContent } from './components/SubmitContent';
 import { SocialSection } from './components/SocialSection';
 import { Footer } from './components/Footer';
 import { ArticleModal } from './components/ArticleModal';
 import { ShareModal } from './components/ShareModal';
 import { AdminDashboardModal } from './components/AdminDashboardModal';
-import { MOCK_CONTENT } from './data/mockData';
+import { getStoredContent } from './utils/contentStore';
 import { ContentItem, Category, Province, TimeFilter, FeedTab } from './types';
 
 export default function App() {
+  const [allContent, setAllContent] = useState<ContentItem[]>(() => getStoredContent());
+  
   const [activeTab, setActiveTab] = useState<string>('home');
   const [selectedProvince, setSelectedProvince] = useState<Province>('Tutte');
   const [selectedCategory, setSelectedCategory] = useState<Category>('TUTTI');
@@ -43,6 +46,19 @@ export default function App() {
   const [adminOpen, setAdminOpen] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState<ContentItem | null>(null);
   const [shareItem, setShareItem] = useState<ContentItem | null>(null);
+
+  // Sync content items from storage
+  useEffect(() => {
+    const handleContentUpdate = () => {
+      setAllContent(getStoredContent());
+    };
+    window.addEventListener('mw_content_updated', handleContentUpdate);
+    window.addEventListener('storage', handleContentUpdate);
+    return () => {
+      window.removeEventListener('mw_content_updated', handleContentUpdate);
+      window.removeEventListener('storage', handleContentUpdate);
+    };
+  }, []);
 
   // Sync saved items to localStorage
   useEffect(() => {
@@ -71,7 +87,7 @@ export default function App() {
   };
 
   // Filter items based on City, Category, FeedTab
-  const filteredItems = MOCK_CONTENT.filter(item => {
+  const filteredItems = allContent.filter(item => {
     const matchesProvince = selectedProvince === 'Tutte' || item.province === selectedProvince;
     const matchesCategory = selectedCategory === 'TUTTI' || item.category === selectedCategory;
     
@@ -85,9 +101,9 @@ export default function App() {
     return matchesProvince && matchesCategory && matchesFeedTab;
   });
 
-  const heroItem = MOCK_CONTENT.find(i => i.isHeroFeature) || MOCK_CONTENT[0];
-  const secondaryItems = MOCK_CONTENT.filter(i => i.id !== heroItem.id);
-  const savedItems = MOCK_CONTENT.filter(i => savedIds.includes(i.id));
+  const heroItem = allContent.find(i => i.isHeroFeature) || allContent[0];
+  const secondaryItems = allContent.filter(i => i.id !== heroItem?.id);
+  const savedItems = allContent.filter(i => savedIds.includes(i.id));
 
   return (
     <div className="min-h-screen bg-[#050505] text-[#FFFFFF] font-['Plus_Jakarta_Sans',sans-serif] selection:bg-[#FFD400] selection:text-[#050505] pb-16 md:pb-0">
@@ -108,18 +124,20 @@ export default function App() {
       <BreakingTicker />
 
       {/* Hero Editorial */}
-      <HeroEditorial
-        heroItem={heroItem}
-        secondaryItems={secondaryItems}
-        onSelectContent={(item) => setSelectedArticle(item)}
-        onToggleSave={handleToggleSave}
-        savedIds={savedIds}
-        onOpenShare={handleOpenShare}
-      />
+      {heroItem && (
+        <HeroEditorial
+          heroItem={heroItem}
+          secondaryItems={secondaryItems}
+          onSelectContent={(item) => setSelectedArticle(item)}
+          onToggleSave={handleToggleSave}
+          savedIds={savedIds}
+          onOpenShare={handleOpenShare}
+        />
+      )}
 
       {/* Trending Ora (01 to 05) */}
       <TrendingOra
-        items={MOCK_CONTENT}
+        items={allContent}
         onSelectContent={(item) => setSelectedArticle(item)}
         onToggleSave={handleToggleSave}
         savedIds={savedIds}
@@ -153,7 +171,7 @@ export default function App() {
 
       {/* Video Virali Grid */}
       <VideoGrid
-        items={MOCK_CONTENT}
+        items={allContent}
         onSelectContent={(item) => setSelectedArticle(item)}
         onToggleSave={handleToggleSave}
         savedIds={savedIds}
@@ -162,6 +180,9 @@ export default function App() {
 
       {/* Sicilia Section */}
       <SiciliaSection />
+
+      {/* Blog Section */}
+      <BlogSection />
 
       {/* Social Section */}
       <SocialSection />
@@ -185,7 +206,7 @@ export default function App() {
       <SearchOverlay
         isOpen={searchOpen}
         onClose={() => setSearchOpen(false)}
-        items={MOCK_CONTENT}
+        items={allContent}
         onSelectContent={(item) => setSelectedArticle(item)}
       />
 
@@ -211,7 +232,7 @@ export default function App() {
         onToggleSave={handleToggleSave}
         savedIds={savedIds}
         onOpenShare={handleOpenShare}
-        allItems={MOCK_CONTENT}
+        allItems={allContent}
         onSelectContent={(item) => setSelectedArticle(item)}
       />
 

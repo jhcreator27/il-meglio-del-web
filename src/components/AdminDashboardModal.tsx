@@ -3,9 +3,12 @@ import {
   LayoutDashboard, FileText, Clock, CheckCircle2, XCircle, Archive, 
   ListOrdered, BarChart3, Settings, Search, Bell, User, LogOut, 
   Menu, X, Eye, Check, ChevronRight, ShieldCheck, Download, Trash2, 
-  Play, Pause, Volume2, Maximize2, AlertCircle, Filter, Calendar
+  Play, Pause, Volume2, Maximize2, AlertCircle, Filter, Calendar,
+  BookOpen, Plus, Edit, Globe
 } from 'lucide-react';
-import { ContributionItem, ContributionStatus, TimelineEvent } from '../types';
+import { ContributionItem, ContributionStatus, TimelineEvent, BlogPost, ContentItem, Category, Province } from '../types';
+import { INITIAL_BLOG_POSTS } from '../data/blogData';
+import { getStoredContent, saveStoredContent } from '../utils/contentStore';
 
 interface AdminDashboardModalProps {
   isOpen: boolean;
@@ -30,48 +33,6 @@ const INITIAL_CONTRIBUTIONS: ContributionItem[] = [
     timeline: [
       { date: new Date(Date.now() - 3600000 * 2).toLocaleString('it-IT'), action: 'Contributo ricevuto', author: 'Mario Rossi' }
     ]
-  },
-  {
-    id: 'contrib-2',
-    referenceCode: 'WEB-2026-3A91B',
-    name: 'Giulia Gialli',
-    email: 'giulia@email.com',
-    city: 'Catania',
-    category: 'News',
-    contentUrl: 'https://instagram.com/p/ct2918',
-    mediaUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=800&q=80',
-    mediaType: 'image',
-    description: 'Intervista esclusiva sul nuovo lungomare di Catania.',
-    status: 'IN_REVIEW',
-    createdAt: new Date(Date.now() - 3600000 * 5).toISOString(),
-    updatedAt: new Date(Date.now() - 3600000 * 4).toISOString(),
-    reviewedBy: 'Admin Redazione',
-    timeline: [
-      { date: new Date(Date.now() - 3600000 * 5).toLocaleString('it-IT'), action: 'Contributo ricevuto', author: 'Giulia Gialli' },
-      { date: new Date(Date.now() - 3600000 * 4).toLocaleString('it-IT'), action: 'Messo in revisione', author: 'Admin Redazione' }
-    ]
-  },
-  {
-    id: 'contrib-3',
-    referenceCode: 'WEB-2026-9C21X',
-    name: 'Alessandro Neri',
-    email: 'alessandro@email.com',
-    city: 'Messina',
-    category: 'Sport',
-    contentUrl: 'https://youtube.com/watch?v=xyz',
-    mediaUrl: 'https://images.unsplash.com/photo-1517649763962-0c6232660102?auto=format&fit=crop&w=800&q=80',
-    mediaType: 'image',
-    description: 'Torneo internazionale di beach volley sullo Stretto di Messina.',
-    status: 'APPROVED',
-    createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
-    updatedAt: new Date(Date.now() - 3600000 * 20).toISOString(),
-    reviewedAt: new Date(Date.now() - 3600000 * 20).toISOString(),
-    reviewedBy: 'Direttore Responsabile',
-    timeline: [
-      { date: new Date(Date.now() - 3600000 * 24).toLocaleString('it-IT'), action: 'Contributo ricevuto', author: 'Alessandro Neri' },
-      { date: new Date(Date.now() - 3600000 * 22).toLocaleString('it-IT'), action: 'Messo in revisione', author: 'Admin Redazione' },
-      { date: new Date(Date.now() - 3600000 * 20).toLocaleString('it-IT'), action: 'Approvato', author: 'Direttore Responsabile' }
-    ]
   }
 ];
 
@@ -95,10 +56,50 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     return INITIAL_CONTRIBUTIONS;
   });
 
+  // Blog posts state
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>(() => {
+    try {
+      const saved = localStorage.getItem('mw_blog_posts');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // ignore
+    }
+    return INITIAL_BLOG_POSTS;
+  });
+
+  // Website Editorial Content state
+  const [contentItems, setContentItems] = useState<ContentItem[]>(() => getStoredContent());
+
+  // Modals state
+  const [blogModalOpen, setBlogModalOpen] = useState(false);
+  const [editingBlogId, setEditingBlogId] = useState<string | null>(null);
+  const [blogForm, setBlogForm] = useState({
+    title: '',
+    category: 'Cultura',
+    author: 'Redazione MW',
+    readTime: '5 min',
+    image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80',
+    excerpt: '',
+    content: ''
+  });
+
+  const [contentModalOpen, setContentModalOpen] = useState(false);
+  const [editingContentId, setEditingContentId] = useState<string | null>(null);
+  const [contentForm, setContentForm] = useState({
+    title: '',
+    excerpt: '',
+    content: '',
+    category: 'VIRALI' as Category,
+    province: 'Palermo' as Province,
+    image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80',
+    author: 'Redazione MW',
+    badge: 'VIRALE' as any,
+    platform: 'Web' as any
+  });
+
   const [selectedContribution, setSelectedContribution] = useState<ContributionItem | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   
   const [rejectionModalOpen, setRejectionModalOpen] = useState(false);
@@ -111,6 +112,17 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
   useEffect(() => {
     localStorage.setItem('mw_admin_contributions', JSON.stringify(contributions));
   }, [contributions]);
+
+  // Sync blog posts to localStorage
+  useEffect(() => {
+    localStorage.setItem('mw_blog_posts', JSON.stringify(blogPosts));
+    window.dispatchEvent(new Event('mw_blog_updated'));
+  }, [blogPosts]);
+
+  // Sync content items to localStorage
+  useEffect(() => {
+    saveStoredContent(contentItems);
+  }, [contentItems]);
 
   // Listen to new submissions from SubmitContent
   useEffect(() => {
@@ -147,7 +159,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
               <ShieldCheck className="w-6 h-6" />
             </div>
             <h3 className="font-syne font-black text-2xl text-white mb-2">Area Amministrativa</h3>
-            <p className="text-xs text-neutral-400">Inserisci le credenziali di accesso per gestire i contributi di Il Meglio del Web.</p>
+            <p className="text-xs text-neutral-400">Pannello di controllo universale per modificare qualsiasi contenuto del sito.</p>
           </div>
 
           {loginError && (
@@ -180,7 +192,6 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
               <label className="block text-xs font-syne font-bold uppercase tracking-wider text-neutral-300 mb-2">Password</label>
               <input
                 type="password"
-                placeholder="Qualsiasi password (es. admin123)"
                 value={adminPassword}
                 onChange={(e) => setAdminPassword(e.target.value)}
                 className="w-full bg-[#171717] border border-[#262626] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#FFD400]"
@@ -206,7 +217,9 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     approved: contributions.filter(c => c.status === 'APPROVED').length,
     rejected: contributions.filter(c => c.status === 'REJECTED').length,
     archived: contributions.filter(c => c.status === 'ARCHIVED').length,
-    total: contributions.length
+    total: contributions.length,
+    blogCount: blogPosts.length,
+    contentCount: contentItems.length
   };
 
   // Filter contributions for table
@@ -222,9 +235,6 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     const matchesStatus = 
       statusFilter === 'ALL' || item.status === statusFilter;
 
-    const matchesCategory =
-      categoryFilter === 'ALL' || item.category === categoryFilter;
-
     let matchesNav = true;
     if (activeNav === 'new') matchesNav = item.status === 'NEW';
     else if (activeNav === 'in_review') matchesNav = item.status === 'IN_REVIEW';
@@ -232,7 +242,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     else if (activeNav === 'rejected') matchesNav = item.status === 'REJECTED';
     else if (activeNav === 'archived') matchesNav = item.status === 'ARCHIVED';
 
-    return matchesSearch && matchesStatus && matchesCategory && matchesNav;
+    return matchesSearch && matchesStatus && matchesNav;
   });
 
   // Moderation actions
@@ -272,48 +282,95 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     }
   };
 
-  // Bulk actions
-  const handleBulkAction = (actionType: 'APPROVE' | 'REVIEW' | 'ARCHIVE' | 'EXPORT') => {
-    if (selectedIds.length === 0) {
-      showToast('Seleziona almeno un contributo.');
+  // Blog post handlers
+  const handleSaveBlogPost = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!blogForm.title || !blogForm.content) {
+      showToast('Compila titolo e contenuto del blog.');
       return;
     }
 
-    if (actionType === 'EXPORT') {
-      const csvContent = "data:text/csv;charset=utf-8," + 
-        ["Codice,Nome,Email,Città,Categoria,Stato,Data"].join(",") + "\n" +
-        filteredContributions.filter(c => selectedIds.includes(c.id)).map(c => 
-          [c.referenceCode, c.name, c.email, c.city, c.category, c.status, c.createdAt].join(",")
-        ).join("\n");
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", "contributi_ilmegliodelweb.csv");
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      showToast('✓ Contributi esportati in CSV.');
+    if (editingBlogId) {
+      setBlogPosts(prev => prev.map(p => p.id === editingBlogId ? {
+        ...p,
+        ...blogForm,
+        slug: blogForm.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      } : p));
+      showToast('✓ Articolo blog aggiornato.');
+    } else {
+      const newPost: BlogPost = {
+        id: 'blog-' + Date.now(),
+        title: blogForm.title,
+        slug: blogForm.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        excerpt: blogForm.excerpt || blogForm.content.substring(0, 120) + '...',
+        content: blogForm.content,
+        category: blogForm.category,
+        author: blogForm.author,
+        date: new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' }),
+        readTime: blogForm.readTime,
+        image: blogForm.image,
+        views: 1
+      };
+      setBlogPosts(prev => [newPost, ...prev]);
+      showToast('✓ Nuovo articolo blog pubblicato.');
+    }
+
+    setBlogModalOpen(false);
+    setEditingBlogId(null);
+  };
+
+  const handleDeleteBlogPost = (id: string) => {
+    if (window.confirm('Eliminare questo articolo del blog?')) {
+      setBlogPosts(prev => prev.filter(p => p.id !== id));
+      showToast('✓ Articolo eliminato.');
+    }
+  };
+
+  // Website Content Item handlers
+  const handleSaveContentItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contentForm.title || !contentForm.content) {
+      showToast('Compila titolo e contenuto.');
       return;
     }
 
-    const targetStatus: ContributionStatus = 
-      actionType === 'APPROVE' ? 'APPROVED' :
-      actionType === 'REVIEW' ? 'IN_REVIEW' : 'ARCHIVED';
+    if (editingContentId) {
+      setContentItems(prev => prev.map(item => item.id === editingContentId ? {
+        ...item,
+        ...contentForm
+      } : item));
+      showToast('✓ Contenuto del sito aggiornato con successo.');
+    } else {
+      const newItem: ContentItem = {
+        id: 'story-' + Date.now(),
+        title: contentForm.title,
+        excerpt: contentForm.excerpt || contentForm.content.substring(0, 120) + '...',
+        content: contentForm.content,
+        category: contentForm.category,
+        province: contentForm.province,
+        image: contentForm.image,
+        date: new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' }),
+        timestamp: 'Ora',
+        views: 12000,
+        viewsFormatted: '12K',
+        platform: contentForm.platform,
+        badge: contentForm.badge,
+        author: contentForm.author,
+        originalSource: { name: 'Il Meglio del Web', url: '#' }
+      };
+      setContentItems(prev => [newItem, ...prev]);
+      showToast('✓ Nuovo contenuto pubblicato sul sito.');
+    }
 
-    setContributions(prev => prev.map(c => {
-      if (selectedIds.includes(c.id)) {
-        return {
-          ...c,
-          status: targetStatus,
-          updatedAt: new Date().toISOString(),
-          timeline: [{ date: new Date().toLocaleString('it-IT'), action: `Azione multipla: ${targetStatus}`, author: 'Admin Redazione' }, ...c.timeline]
-        };
-      }
-      return c;
-    }));
+    setContentModalOpen(false);
+    setEditingContentId(null);
+  };
 
-    showToast(`✓ Applicata azione multipla su ${selectedIds.length} elementi.`);
-    setSelectedIds([]);
+  const handleDeleteContentItem = (id: string) => {
+    if (window.confirm('Sei sicuro di voler eliminare questo articolo dal sito?')) {
+      setContentItems(prev => prev.filter(i => i.id !== id));
+      showToast('✓ Articolo rimosso dal sito.');
+    }
   };
 
   return (
@@ -336,7 +393,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
             </div>
             <div>
               <span className="font-syne font-black text-sm tracking-wider block">ADMIN HUB</span>
-              <span className="text-[10px] text-neutral-400">Il Meglio del Web</span>
+              <span className="text-[10px] text-neutral-400">Controllo Totale</span>
             </div>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="md:hidden text-neutral-400 hover:text-white">
@@ -347,12 +404,13 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
         <nav className="flex-grow p-4 space-y-1.5 overflow-y-auto">
           {[
             { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, count: null },
+            { id: 'content_mgmt', label: 'Gestione Contenuti', icon: Globe, count: stats.contentCount },
+            { id: 'blog_mgmt', label: 'Gestione Blog', icon: BookOpen, count: stats.blogCount },
             { id: 'new', label: 'Nuovi contributi', icon: FileText, count: stats.new },
             { id: 'in_review', label: 'In revisione', icon: Clock, count: stats.inReview },
             { id: 'approved', label: 'Approvati', icon: CheckCircle2, count: stats.approved },
             { id: 'rejected', label: 'Rifiutati', icon: XCircle, count: stats.rejected },
             { id: 'archived', label: 'Archiviati', icon: Archive, count: stats.archived },
-            { id: 'all', label: 'Tutti i contributi', icon: ListOrdered, count: stats.total },
             { id: 'stats', label: 'Statistiche', icon: BarChart3, count: null },
             { id: 'settings', label: 'Impostazioni', icon: Settings, count: null },
           ].map((item) => {
@@ -406,67 +464,21 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
             <div>
               <h1 className="font-syne font-black text-lg text-white capitalize">
                 {activeNav === 'dashboard' ? 'Panoramica Generale' :
+                 activeNav === 'content_mgmt' ? 'Gestione Contenuti del Sito' :
+                 activeNav === 'blog_mgmt' ? 'Gestione Articoli Blog' :
                  activeNav === 'new' ? 'Nuovi Contributi' :
                  activeNav === 'in_review' ? 'Contributi in Revisione' :
                  activeNav === 'approved' ? 'Contributi Approvati' :
                  activeNav === 'rejected' ? 'Contributi Rifiutati' :
                  activeNav === 'archived' ? 'Contributi Archiviati' :
-                 activeNav === 'all' ? 'Tutti i Contributi' :
                  activeNav === 'stats' ? 'Statistiche & Analisi' : 'Impostazioni Admin'}
               </h1>
-              <p className="text-[11px] text-neutral-400">Gestione e moderazione contenuti editoriali</p>
+              <p className="text-[11px] text-neutral-400">Pannello di controllo globale di Il Meglio del Web</p>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
             
-            {/* Global Search */}
-            <div className="relative hidden sm:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-              <input
-                type="text"
-                placeholder="Cerca contributi..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-[#141414] border border-[#262626] rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-[#FFD400] w-64"
-              />
-            </div>
-
-            {/* Notifications */}
-            <div className="relative">
-              <button
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="w-10 h-10 rounded-xl bg-[#141414] border border-[#262626] flex items-center justify-center text-neutral-300 hover:text-white relative"
-              >
-                <Bell className="w-4 h-4" />
-                {stats.new > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#C62828] text-white text-[9px] font-black flex items-center justify-center">
-                    {stats.new}
-                  </span>
-                )}
-              </button>
-
-              {notificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-[#111111] border border-[#262626] rounded-2xl shadow-2xl p-4 z-50 space-y-3">
-                  <div className="flex items-center justify-between border-b border-[#222222] pb-2">
-                    <span className="font-syne font-bold text-xs uppercase text-white">Notifiche Admin</span>
-                    <span className="text-[10px] text-[#FFD400]">{stats.new} nuove</span>
-                  </div>
-                  <div className="max-h-60 overflow-y-auto space-y-2">
-                    {contributions.filter(c => c.status === 'NEW').slice(0, 5).map(c => (
-                      <div key={c.id} onClick={() => { setSelectedContribution(c); setNotificationsOpen(false); }} className="bg-[#171717] hover:bg-[#1F1F1F] p-2.5 rounded-xl cursor-pointer transition-colors">
-                        <div className="flex items-center justify-between text-[10px] text-neutral-400 mb-1">
-                          <span className="text-[#FFD400] font-mono">{c.referenceCode}</span>
-                          <span>{c.city}</span>
-                        </div>
-                        <p className="text-xs text-white font-medium truncate">Nuovo da {c.name} ({c.category})</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* Admin Profile */}
             <div className="flex items-center gap-3 bg-[#141414] border border-[#262626] px-3.5 py-2 rounded-xl">
               <div className="w-7 h-7 rounded-full bg-[#FFD400] text-black font-black text-xs flex items-center justify-center">
@@ -498,13 +510,12 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
             <div className="space-y-8 animate-in fade-in">
               
               {/* Stat Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 {[
+                  { label: 'Contenuti Sito', count: stats.contentCount, color: 'text-emerald-400', bg: 'bg-emerald-950/20', border: 'border-emerald-900/40', filter: 'content_mgmt' },
+                  { label: 'Articoli Blog', count: stats.blogCount, color: 'text-[#FFD400]', bg: 'bg-yellow-950/20', border: 'border-yellow-900/40', filter: 'blog_mgmt' },
                   { label: 'Nuovi contributi', count: stats.new, color: 'text-amber-400', bg: 'bg-amber-950/20', border: 'border-amber-900/40', filter: 'new' },
-                  { label: 'In revisione', count: stats.inReview, color: 'text-blue-400', bg: 'bg-blue-950/20', border: 'border-blue-900/40', filter: 'in_review' },
-                  { label: 'Approvati', count: stats.approved, color: 'text-emerald-400', bg: 'bg-emerald-950/20', border: 'border-emerald-900/40', filter: 'approved' },
-                  { label: 'Rifiutati', count: stats.rejected, color: 'text-red-400', bg: 'bg-red-950/20', border: 'border-red-900/40', filter: 'rejected' },
-                  { label: 'Archiviati', count: stats.archived, color: 'text-neutral-400', bg: 'bg-neutral-900/40', border: 'border-neutral-800', filter: 'archived' },
+                  { label: 'Approvati', count: stats.approved, color: 'text-blue-400', bg: 'bg-blue-950/20', border: 'border-blue-900/40', filter: 'approved' },
                 ].map((card, idx) => (
                   <div
                     key={idx}
@@ -521,62 +532,122 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                 ))}
               </div>
 
-              {/* Quick Actions & Recent */}
-              <div className="bg-[#111111] border border-[#222222] rounded-3xl p-6 shadow-xl">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="font-syne font-extrabold text-sm uppercase tracking-wider text-white">
-                    Ultimi contributi ricevuti
+              {/* Quick Actions */}
+              <div className="bg-[#111111] border border-[#222222] rounded-3xl p-6 shadow-xl flex flex-wrap gap-4 items-center justify-between">
+                <div>
+                  <h3 className="font-syne font-extrabold text-sm uppercase tracking-wider text-white mb-1">
+                    Modifica rapida contenuti del sito
                   </h3>
-                  <button
-                    onClick={() => setActiveNav('new')}
-                    className="text-xs text-[#FFD400] hover:underline font-bold"
-                  >
-                    Vedi tutti →
-                  </button>
+                  <p className="text-xs text-neutral-400">Aggiungi o modifica qualsiasi notizia, video o articolo pubblicato sulla home.</p>
                 </div>
+                <button
+                  onClick={() => {
+                    setEditingContentId(null);
+                    setContentForm({
+                      title: '',
+                      excerpt: '',
+                      content: '',
+                      category: 'VIRALI',
+                      province: 'Palermo',
+                      image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80',
+                      author: 'Redazione MW',
+                      badge: 'VIRALE',
+                      platform: 'Web'
+                    });
+                    setContentModalOpen(true);
+                  }}
+                  className="px-6 py-3 bg-[#FFD400] text-black font-syne font-black text-xs uppercase rounded-xl shadow-lg"
+                >
+                  + Aggiungi Contenuto al Sito
+                </button>
+              </div>
 
+            </div>
+          )}
+
+          {/* VIEW: WEBSITE CONTENT MANAGEMENT */}
+          {activeNav === 'content_mgmt' && (
+            <div className="space-y-6 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-syne font-black text-xl text-white">Contenuti Editoriali del Sito</h3>
+                  <p className="text-xs text-neutral-400">Modifica, aggiungi o elimina qualsiasi notizia, video o card visibile in home page.</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setEditingContentId(null);
+                    setContentForm({
+                      title: '',
+                      excerpt: '',
+                      content: '',
+                      category: 'VIRALI',
+                      province: 'Palermo',
+                      image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80',
+                      author: 'Redazione MW',
+                      badge: 'VIRALE',
+                      platform: 'Web'
+                    });
+                    setContentModalOpen(true);
+                  }}
+                  className="px-4 py-2.5 bg-[#FFD400] hover:bg-[#ffc200] text-black font-syne font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Nuovo Contenuto</span>
+                </button>
+              </div>
+
+              <div className="bg-[#111111] border border-[#222222] rounded-3xl shadow-xl overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="border-b border-[#222222] text-[10px] font-syne font-bold uppercase tracking-widest text-neutral-400">
-                        <th className="py-3 px-4">Codice</th>
-                        <th className="py-3 px-4">Mittente</th>
+                      <tr className="border-b border-[#222222] text-[10px] font-syne font-bold uppercase tracking-widest text-neutral-400 bg-[#0E0E0E]">
+                        <th className="py-3 px-4">Titolo</th>
                         <th className="py-3 px-4">Categoria</th>
-                        <th className="py-3 px-4">Città</th>
-                        <th className="py-3 px-4">Data</th>
-                        <th className="py-3 px-4">Stato</th>
+                        <th className="py-3 px-4">Provincia</th>
+                        <th className="py-3 px-4">Autore</th>
+                        <th className="py-3 px-4">Visualizzazioni</th>
                         <th className="py-3 px-4 text-right">Azioni</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#1A1A1A] text-xs">
-                      {contributions.slice(0, 5).map((item) => (
+                      {contentItems.map((item) => (
                         <tr key={item.id} className="hover:bg-[#161616] transition-colors">
-                          <td className="py-4 px-4 font-mono font-bold text-[#FFD400]">{item.referenceCode}</td>
-                          <td className="py-4 px-4">
-                            <span className="font-bold text-white block">{item.name}</span>
-                            <span className="text-[10px] text-neutral-500">{item.email}</span>
+                          <td className="py-4 px-4 flex items-center gap-3">
+                            <img src={item.image} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                            <span className="font-bold text-white line-clamp-1">{item.title}</span>
                           </td>
                           <td className="py-4 px-4"><span className="bg-[#1C1C1C] px-2.5 py-1 rounded-lg text-neutral-300">{item.category}</span></td>
-                          <td className="py-4 px-4 text-neutral-300">{item.city}</td>
-                          <td className="py-4 px-4 text-neutral-400">{new Date(item.createdAt).toLocaleDateString('it-IT')}</td>
-                          <td className="py-4 px-4">
-                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                              item.status === 'NEW' ? 'bg-amber-950/40 text-amber-400 border border-amber-800' :
-                              item.status === 'IN_REVIEW' ? 'bg-blue-950/40 text-blue-400 border border-blue-800' :
-                              item.status === 'APPROVED' ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-800' :
-                              item.status === 'REJECTED' ? 'bg-red-950/40 text-red-400 border border-red-800' :
-                              'bg-neutral-800 text-neutral-400'
-                            }`}>
-                              {item.status}
-                            </span>
-                          </td>
-                          <td className="py-4 px-4 text-right">
+                          <td className="py-4 px-4 text-neutral-300">{item.province}</td>
+                          <td className="py-4 px-4 text-neutral-300">{item.author}</td>
+                          <td className="py-4 px-4 text-[#FFD400] font-mono">{item.viewsFormatted}</td>
+                          <td className="py-4 px-4 text-right space-x-2">
                             <button
-                              onClick={() => setSelectedContribution(item)}
-                              className="px-3 py-1.5 bg-[#1F1F1F] hover:bg-[#FFD400] hover:text-black rounded-lg text-white font-bold transition-colors inline-flex items-center gap-1.5"
+                              onClick={() => {
+                                setEditingContentId(item.id);
+                                setContentForm({
+                                  title: item.title,
+                                  excerpt: item.excerpt,
+                                  content: item.content,
+                                  category: item.category,
+                                  province: item.province,
+                                  image: item.image,
+                                  author: item.author,
+                                  badge: item.badge || 'VIRALE',
+                                  platform: item.platform || 'Web'
+                                });
+                                setContentModalOpen(true);
+                              }}
+                              className="px-3 py-1.5 bg-[#1F1F1F] hover:bg-[#FFD400] hover:text-black rounded-lg text-white font-bold transition-colors inline-flex items-center gap-1"
                             >
-                              <Eye className="w-3.5 h-3.5" />
-                              <span>Esamina</span>
+                              <Edit className="w-3.5 h-3.5" />
+                              <span>Modifica</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteContentItem(item.id)}
+                              className="px-3 py-1.5 bg-red-950/40 hover:bg-red-900 border border-red-900 text-red-300 rounded-lg font-bold transition-colors inline-flex items-center gap-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Elimina</span>
                             </button>
                           </td>
                         </tr>
@@ -585,223 +656,156 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                   </table>
                 </div>
               </div>
-
             </div>
           )}
 
-          {/* VIEW: CONTRIBUTIONS TABLE (NEW, IN_REVIEW, APPROVED, REJECTED, ARCHIVED, ALL) */}
-          {(activeNav !== 'dashboard' && activeNav !== 'stats' && activeNav !== 'settings') && (
+          {/* VIEW: BLOG MANAGEMENT */}
+          {activeNav === 'blog_mgmt' && (
             <div className="space-y-6 animate-in fade-in">
-              
-              {/* Filters & Bulk Toolbar */}
-              <div className="bg-[#111111] border border-[#222222] rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                  <div className="relative flex-grow sm:w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                    <input
-                      type="text"
-                      placeholder="Cerca per nome, email, città..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full bg-[#171717] border border-[#262626] rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-[#FFD400]"
-                    />
-                  </div>
-
-                  {/* Status filter dropdown */}
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="bg-[#171717] border border-[#262626] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FFD400]"
-                  >
-                    <option value="ALL">Tutti gli stati</option>
-                    <option value="NEW">Nuovo</option>
-                    <option value="IN_REVIEW">In revisione</option>
-                    <option value="APPROVED">Approvato</option>
-                    <option value="REJECTED">Rifiutato</option>
-                    <option value="ARCHIVED">Archiviato</option>
-                  </select>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-syne font-black text-xl text-white">Articoli del Blog</h3>
+                  <p className="text-xs text-neutral-400">Crea, modifica ed elimina gli articoli editoriali pubblicati sul sito.</p>
                 </div>
-
-                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                  {selectedIds.length > 0 && (
-                    <>
-                      <button
-                        onClick={() => handleBulkAction('APPROVE')}
-                        className="px-3 py-2 bg-emerald-950/40 border border-emerald-800 text-emerald-300 rounded-xl text-xs font-bold hover:bg-emerald-900/50"
-                      >
-                        Approva ({selectedIds.length})
-                      </button>
-                      <button
-                        onClick={() => handleBulkAction('ARCHIVE')}
-                        className="px-3 py-2 bg-[#1C1C1C] border border-[#333] text-neutral-300 rounded-xl text-xs font-bold hover:bg-[#262626]"
-                      >
-                        Archivia ({selectedIds.length})
-                      </button>
-                    </>
-                  )}
-                  <button
-                    onClick={() => handleBulkAction('EXPORT')}
-                    className="px-4 py-2 bg-[#1C1C1C] hover:bg-[#262626] border border-[#2A2A2A] text-white rounded-xl text-xs font-bold flex items-center gap-1.5"
-                  >
-                    <Download className="w-3.5 h-3.5 text-[#FFD400]" />
-                    <span>Esporta CSV</span>
-                  </button>
-                </div>
+                <button
+                  onClick={() => {
+                    setEditingBlogId(null);
+                    setBlogForm({
+                      title: '',
+                      category: 'Cultura',
+                      author: 'Redazione MW',
+                      readTime: '5 min',
+                      image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80',
+                      excerpt: '',
+                      content: ''
+                    });
+                    setBlogModalOpen(true);
+                  }}
+                  className="px-4 py-2.5 bg-[#FFD400] hover:bg-[#ffc200] text-black font-syne font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Nuovo Articolo Blog</span>
+                </button>
               </div>
 
-              {/* Table */}
               <div className="bg-[#111111] border border-[#222222] rounded-3xl shadow-xl overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="border-b border-[#222222] text-[10px] font-syne font-bold uppercase tracking-widest text-neutral-400 bg-[#0E0E0E]">
-                        <th className="py-3 px-4 w-10">
-                          <input
-                            type="checkbox"
-                            onChange={(e) => {
-                              if (e.target.checked) setSelectedIds(filteredContributions.map(c => c.id));
-                              else setSelectedIds([]);
-                            }}
-                            checked={selectedIds.length === filteredContributions.length && filteredContributions.length > 0}
-                            className="rounded bg-[#171717] border-[#333] text-[#FFD400] focus:ring-0"
-                          />
-                        </th>
+                        <th className="py-3 px-4">Titolo</th>
+                        <th className="py-3 px-4">Categoria</th>
+                        <th className="py-3 px-4">Autore</th>
+                        <th className="py-3 px-4">Data</th>
+                        <th className="py-3 px-4 text-right">Azioni</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#1A1A1A] text-xs">
+                      {blogPosts.map((post) => (
+                        <tr key={post.id} className="hover:bg-[#161616] transition-colors">
+                          <td className="py-4 px-4 flex items-center gap-3">
+                            <img src={post.image} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                            <span className="font-bold text-white line-clamp-1">{post.title}</span>
+                          </td>
+                          <td className="py-4 px-4"><span className="bg-[#1C1C1C] px-2.5 py-1 rounded-lg text-neutral-300">{post.category}</span></td>
+                          <td className="py-4 px-4 text-neutral-300">{post.author}</td>
+                          <td className="py-4 px-4 text-neutral-400">{post.date}</td>
+                          <td className="py-4 px-4 text-right space-x-2">
+                            <button
+                              onClick={() => {
+                                setEditingBlogId(post.id);
+                                setBlogForm({
+                                  title: post.title,
+                                  category: post.category,
+                                  author: post.author,
+                                  readTime: post.readTime,
+                                  image: post.image,
+                                  excerpt: post.excerpt,
+                                  content: post.content
+                                });
+                                setBlogModalOpen(true);
+                              }}
+                              className="px-3 py-1.5 bg-[#1F1F1F] hover:bg-[#FFD400] hover:text-black rounded-lg text-white font-bold transition-colors inline-flex items-center gap-1"
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                              <span>Modifica</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteBlogPost(post.id)}
+                              className="px-3 py-1.5 bg-red-950/40 hover:bg-red-900 border border-red-900 text-red-300 rounded-lg font-bold transition-colors inline-flex items-center gap-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Elimina</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* VIEW: CONTRIBUTIONS */}
+          {(activeNav !== 'dashboard' && activeNav !== 'content_mgmt' && activeNav !== 'blog_mgmt' && activeNav !== 'stats' && activeNav !== 'settings') && (
+            <div className="space-y-6 animate-in fade-in">
+              <div className="bg-[#111111] border border-[#222222] rounded-3xl shadow-xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-[#222222] text-[10px] font-syne font-bold uppercase tracking-widest text-neutral-400 bg-[#0E0E0E]">
                         <th className="py-3 px-4">Codice</th>
                         <th className="py-3 px-4">Mittente</th>
                         <th className="py-3 px-4">Categoria</th>
                         <th className="py-3 px-4">Città</th>
-                        <th className="py-3 px-4">Data</th>
                         <th className="py-3 px-4">Stato</th>
                         <th className="py-3 px-4 text-right">Azioni</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#1A1A1A] text-xs">
-                      {filteredContributions.length > 0 ? (
-                        filteredContributions.map((item) => (
-                          <tr key={item.id} className="hover:bg-[#161616] transition-colors">
-                            <td className="py-4 px-4">
-                              <input
-                                type="checkbox"
-                                checked={selectedIds.includes(item.id)}
-                                onChange={(e) => {
-                                  if (e.target.checked) setSelectedIds(prev => [...prev, item.id]);
-                                  else setSelectedIds(prev => prev.filter(id => id !== item.id));
-                                }}
-                                className="rounded bg-[#171717] border-[#333] text-[#FFD400] focus:ring-0"
-                              />
-                            </td>
-                            <td className="py-4 px-4 font-mono font-bold text-[#FFD400]">{item.referenceCode}</td>
-                            <td className="py-4 px-4">
-                              <span className="font-bold text-white block">{item.name}</span>
-                              <span className="text-[10px] text-neutral-500">{item.email}</span>
-                            </td>
-                            <td className="py-4 px-4"><span className="bg-[#1C1C1C] px-2.5 py-1 rounded-lg text-neutral-300">{item.category}</span></td>
-                            <td className="py-4 px-4 text-neutral-300">{item.city}</td>
-                            <td className="py-4 px-4 text-neutral-400">{new Date(item.createdAt).toLocaleDateString('it-IT')}</td>
-                            <td className="py-4 px-4">
-                              <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                                item.status === 'NEW' ? 'bg-amber-950/40 text-amber-400 border border-amber-800' :
-                                item.status === 'IN_REVIEW' ? 'bg-blue-950/40 text-blue-400 border border-blue-800' :
-                                item.status === 'APPROVED' ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-800' :
-                                item.status === 'REJECTED' ? 'bg-red-950/40 text-red-400 border border-red-800' :
-                                'bg-neutral-800 text-neutral-400'
-                              }`}>
-                                {item.status}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <button
-                                onClick={() => setSelectedContribution(item)}
-                                className="px-3 py-1.5 bg-[#1F1F1F] hover:bg-[#FFD400] hover:text-black rounded-lg text-white font-bold transition-colors inline-flex items-center gap-1.5"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                                <span>Esamina</span>
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={8} className="py-12 text-center text-neutral-500">
-                            Nessun contributo trovato in questa sezione.
+                      {filteredContributions.map((item) => (
+                        <tr key={item.id} className="hover:bg-[#161616] transition-colors">
+                          <td className="py-4 px-4 font-mono font-bold text-[#FFD400]">{item.referenceCode}</td>
+                          <td className="py-4 px-4"><span className="font-bold text-white block">{item.name}</span></td>
+                          <td className="py-4 px-4">{item.category}</td>
+                          <td className="py-4 px-4">{item.city}</td>
+                          <td className="py-4 px-4"><span className="px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-800 text-neutral-300">{item.status}</span></td>
+                          <td className="py-4 px-4 text-right">
+                            <button onClick={() => setSelectedContribution(item)} className="px-3 py-1.5 bg-[#1F1F1F] hover:bg-[#FFD400] hover:text-black rounded-lg text-white font-bold">
+                              Esamina
+                            </button>
                           </td>
                         </tr>
-                      )}
+                      ))}
                     </tbody>
                   </table>
                 </div>
               </div>
-
             </div>
           )}
 
-          {/* VIEW: STATISTICHE */}
+          {/* VIEW: STATS */}
           {activeNav === 'stats' && (
-            <div className="space-y-8 animate-in fade-in">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="space-y-6 animate-in fade-in">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                 <div className="bg-[#111111] border border-[#222222] rounded-2xl p-5 shadow-xl">
-                  <span className="text-xs font-syne font-bold uppercase text-neutral-400 block mb-1">Contributi Totali</span>
+                  <span className="text-xs font-syne font-bold uppercase text-neutral-400 block mb-1">Contenuti Sito</span>
+                  <span className="font-syne font-black text-3xl text-emerald-400">{stats.contentCount}</span>
+                </div>
+                <div className="bg-[#111111] border border-[#222222] rounded-2xl p-5 shadow-xl">
+                  <span className="text-xs font-syne font-bold uppercase text-neutral-400 block mb-1">Articoli Blog</span>
+                  <span className="font-syne font-black text-3xl text-[#FFD400]">{stats.blogCount}</span>
+                </div>
+                <div className="bg-[#111111] border border-[#222222] rounded-2xl p-5 shadow-xl">
+                  <span className="text-xs font-syne font-bold uppercase text-neutral-400 block mb-1">Contributi Utenti</span>
                   <span className="font-syne font-black text-3xl text-white">{stats.total}</span>
                 </div>
-                <div className="bg-[#111111] border border-[#222222] rounded-2xl p-5 shadow-xl">
-                  <span className="text-xs font-syne font-bold uppercase text-neutral-400 block mb-1">Tasso di Approvazione</span>
-                  <span className="font-syne font-black text-3xl text-emerald-400">
-                    {stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0}%
-                  </span>
-                </div>
-                <div className="bg-[#111111] border border-[#222222] rounded-2xl p-5 shadow-xl">
-                  <span className="text-xs font-syne font-bold uppercase text-neutral-400 block mb-1">In Attesa di Revisione</span>
-                  <span className="font-syne font-black text-3xl text-amber-400">{stats.new + stats.inReview}</span>
-                </div>
-                <div className="bg-[#111111] border border-[#222222] rounded-2xl p-5 shadow-xl">
-                  <span className="text-xs font-syne font-bold uppercase text-neutral-400 block mb-1">Contributi Rifiutati</span>
-                  <span className="font-syne font-black text-3xl text-red-400">{stats.rejected}</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-[#111111] border border-[#222222] rounded-3xl p-6 shadow-xl space-y-4">
-                  <h3 className="font-syne font-bold text-sm uppercase text-white">Distribuzione per Stato</h3>
-                  <div className="space-y-3 pt-2">
-                    {[
-                      { label: 'Approvati', count: stats.approved, color: 'bg-emerald-500' },
-                      { label: 'Nuovi', count: stats.new, color: 'bg-amber-500' },
-                      { label: 'In revisione', count: stats.inReview, color: 'bg-blue-500' },
-                      { label: 'Rifiutati', count: stats.rejected, color: 'bg-red-500' },
-                      { label: 'Archiviati', count: stats.archived, color: 'bg-neutral-600' },
-                    ].map((st, i) => (
-                      <div key={i} className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-neutral-300">{st.label}</span>
-                          <span className="font-bold text-white">{st.count}</span>
-                        </div>
-                        <div className="w-full h-2 bg-[#1C1C1C] rounded-full overflow-hidden">
-                          <div className={`h-full ${st.color}`} style={{ width: `${stats.total > 0 ? (st.count / stats.total) * 100 : 0}%` }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-[#111111] border border-[#222222] rounded-3xl p-6 shadow-xl space-y-4">
-                  <h3 className="font-syne font-bold text-sm uppercase text-white">Attività Recente</h3>
-                  <div className="space-y-3">
-                    {contributions.slice(0, 4).map(c => (
-                      <div key={c.id} className="bg-[#171717] p-3 rounded-xl flex items-center justify-between text-xs">
-                        <div>
-                          <span className="font-bold text-white block">{c.name} ({c.category})</span>
-                          <span className="text-[10px] text-neutral-400">{c.city} · {new Date(c.createdAt).toLocaleDateString('it-IT')}</span>
-                        </div>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-[#222] text-[#FFD400]">{c.status}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
             </div>
           )}
 
-          {/* VIEW: IMPOSTAZIONI */}
+          {/* VIEW: SETTINGS */}
           {activeNav === 'settings' && (
             <div className="bg-[#111111] border border-[#222222] rounded-3xl p-8 max-w-2xl space-y-6 animate-in fade-in">
               <h3 className="font-syne font-black text-xl text-white">Impostazioni Amministratore</h3>
@@ -809,13 +813,6 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                 <div>
                   <label className="block text-neutral-400 mb-1">Email Amministratore</label>
                   <input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} className="w-full bg-[#171717] border border-[#262626] rounded-xl px-4 py-2.5 text-white" />
-                </div>
-                <div>
-                  <label className="block text-neutral-400 mb-1">Notifiche Email</label>
-                  <div className="flex items-center gap-2">
-                    <input type="checkbox" defaultChecked className="rounded bg-[#171717] border-[#333] text-[#FFD400]" />
-                    <span className="text-white">Invia email alla ricezione di un nuovo contributo</span>
-                  </div>
                 </div>
                 <button onClick={() => showToast('✓ Impostazioni salvate correttamente.')} className="px-6 py-3 bg-[#FFD400] text-black font-syne font-bold uppercase rounded-xl">
                   Salva modifiche
@@ -826,6 +823,256 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
 
         </main>
       </div>
+
+      {/* WEBSITE CONTENT ITEM CREATE / EDIT MODAL */}
+      {contentModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#111111] border border-[#262626] rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl relative my-8 max-h-[90vh] overflow-y-auto space-y-6">
+            <button
+              onClick={() => setContentModalOpen(false)}
+              className="absolute top-6 right-6 text-neutral-400 hover:text-white bg-[#1A1A1A] p-2 rounded-full"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="font-syne font-black text-2xl text-white">
+              {editingContentId ? 'Modifica Contenuto del Sito' : 'Nuovo Contenuto per il Sito'}
+            </h3>
+
+            <form onSubmit={handleSaveContentItem} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-syne font-bold uppercase tracking-wider text-neutral-300 mb-2">Titolo Notizia / Video *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Es. Straordinaria scoperta..."
+                  value={contentForm.title}
+                  onChange={(e) => setContentForm({ ...contentForm, title: e.target.value })}
+                  className="w-full bg-[#171717] border border-[#262626] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#FFD400]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block font-syne font-bold uppercase tracking-wider text-neutral-300 mb-2">Categoria</label>
+                  <select
+                    value={contentForm.category}
+                    onChange={(e) => setContentForm({ ...contentForm, category: e.target.value as Category })}
+                    className="w-full bg-[#171717] border border-[#262626] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#FFD400]"
+                  >
+                    <option value="VIRALI">VIRALI</option>
+                    <option value="NEWS">NEWS</option>
+                    <option value="VIDEO">VIDEO</option>
+                    <option value="CULTURA">CULTURA</option>
+                    <option value="SPORT">SPORT</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-syne font-bold uppercase tracking-wider text-neutral-300 mb-2">Provincia</label>
+                  <select
+                    value={contentForm.province}
+                    onChange={(e) => setContentForm({ ...contentForm, province: e.target.value as Province })}
+                    className="w-full bg-[#171717] border border-[#262626] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#FFD400]"
+                  >
+                    <option value="Palermo">Palermo</option>
+                    <option value="Catania">Catania</option>
+                    <option value="Messina">Messina</option>
+                    <option value="Siracusa">Siracusa</option>
+                    <option value="Ragusa">Ragusa</option>
+                    <option value="Trapani">Trapani</option>
+                    <option value="Agrigento">Agrigento</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-syne font-bold uppercase tracking-wider text-neutral-300 mb-2">Badge</label>
+                  <select
+                    value={contentForm.badge}
+                    onChange={(e) => setContentForm({ ...contentForm, badge: e.target.value as any })}
+                    className="w-full bg-[#171717] border border-[#262626] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#FFD400]"
+                  >
+                    <option value="VIRALE">VIRALE</option>
+                    <option value="TRENDING">TRENDING</option>
+                    <option value="VIDEO">VIDEO</option>
+                    <option value="NEWS">NEWS</option>
+                    <option value="NUOVO">NUOVO</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-syne font-bold uppercase tracking-wider text-neutral-300 mb-2">URL Immagine</label>
+                <input
+                  type="url"
+                  placeholder="https://images.unsplash.com/..."
+                  value={contentForm.image}
+                  onChange={(e) => setContentForm({ ...contentForm, image: e.target.value })}
+                  className="w-full bg-[#171717] border border-[#262626] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#FFD400]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-syne font-bold uppercase tracking-wider text-neutral-300 mb-2">Estratto</label>
+                <textarea
+                  rows={2}
+                  placeholder="Breve sintesi..."
+                  value={contentForm.excerpt}
+                  onChange={(e) => setContentForm({ ...contentForm, excerpt: e.target.value })}
+                  className="w-full bg-[#171717] border border-[#262626] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#FFD400]"
+                ></textarea>
+              </div>
+
+              <div>
+                <label className="block font-syne font-bold uppercase tracking-wider text-neutral-300 mb-2">Contenuto Principale *</label>
+                <textarea
+                  rows={5}
+                  required
+                  placeholder="Testo completo dell'articolo..."
+                  value={contentForm.content}
+                  onChange={(e) => setContentForm({ ...contentForm, content: e.target.value })}
+                  className="w-full bg-[#171717] border border-[#262626] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#FFD400]"
+                ></textarea>
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setContentModalOpen(false)}
+                  className="px-5 py-3 bg-[#1C1C1C] hover:bg-[#262626] text-neutral-300 font-bold rounded-xl"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-3 bg-[#FFD400] hover:bg-[#ffc200] text-black font-syne font-black uppercase rounded-xl shadow-lg"
+                >
+                  {editingContentId ? 'Salva Modifiche' : 'Pubblica sul Sito'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* BLOG POST CREATE / EDIT MODAL */}
+      {blogModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#111111] border border-[#262626] rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl relative my-8 max-h-[90vh] overflow-y-auto space-y-6">
+            <button
+              onClick={() => setBlogModalOpen(false)}
+              className="absolute top-6 right-6 text-neutral-400 hover:text-white bg-[#1A1A1A] p-2 rounded-full"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="font-syne font-black text-2xl text-white">
+              {editingBlogId ? 'Modifica Articolo Blog' : 'Nuovo Articolo Blog'}
+            </h3>
+
+            <form onSubmit={handleSaveBlogPost} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-syne font-bold uppercase tracking-wider text-neutral-300 mb-2">Titolo Articolo *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Es. I segreti della cucina..."
+                  value={blogForm.title}
+                  onChange={(e) => setBlogForm({ ...blogForm, title: e.target.value })}
+                  className="w-full bg-[#171717] border border-[#262626] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#FFD400]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block font-syne font-bold uppercase tracking-wider text-neutral-300 mb-2">Categoria</label>
+                  <select
+                    value={blogForm.category}
+                    onChange={(e) => setBlogForm({ ...blogForm, category: e.target.value })}
+                    className="w-full bg-[#171717] border border-[#262626] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#FFD400]"
+                  >
+                    <option value="Cultura">Cultura</option>
+                    <option value="Tecnologia">Tecnologia</option>
+                    <option value="News">News</option>
+                    <option value="Sport">Sport</option>
+                    <option value="Lifestyle">Lifestyle</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-syne font-bold uppercase tracking-wider text-neutral-300 mb-2">Autore</label>
+                  <input
+                    type="text"
+                    value={blogForm.author}
+                    onChange={(e) => setBlogForm({ ...blogForm, author: e.target.value })}
+                    className="w-full bg-[#171717] border border-[#262626] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#FFD400]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-syne font-bold uppercase tracking-wider text-neutral-300 mb-2">Tempo Lettura</label>
+                  <input
+                    type="text"
+                    value={blogForm.readTime}
+                    onChange={(e) => setBlogForm({ ...blogForm, readTime: e.target.value })}
+                    className="w-full bg-[#171717] border border-[#262626] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#FFD400]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-syne font-bold uppercase tracking-wider text-neutral-300 mb-2">URL Immagine</label>
+                <input
+                  type="url"
+                  placeholder="https://images.unsplash.com/..."
+                  value={blogForm.image}
+                  onChange={(e) => setBlogForm({ ...blogForm, image: e.target.value })}
+                  className="w-full bg-[#171717] border border-[#262626] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#FFD400]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-syne font-bold uppercase tracking-wider text-neutral-300 mb-2">Estratto</label>
+                <textarea
+                  rows={2}
+                  placeholder="Sommario..."
+                  value={blogForm.excerpt}
+                  onChange={(e) => setBlogForm({ ...blogForm, excerpt: e.target.value })}
+                  className="w-full bg-[#171717] border border-[#262626] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#FFD400]"
+                ></textarea>
+              </div>
+
+              <div>
+                <label className="block font-syne font-bold uppercase tracking-wider text-neutral-300 mb-2">Contenuto *</label>
+                <textarea
+                  rows={6}
+                  required
+                  placeholder="Testo dell'articolo..."
+                  value={blogForm.content}
+                  onChange={(e) => setBlogForm({ ...blogForm, content: e.target.value })}
+                  className="w-full bg-[#171717] border border-[#262626] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#FFD400]"
+                ></textarea>
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setBlogModalOpen(false)}
+                  className="px-5 py-3 bg-[#1C1C1C] hover:bg-[#262626] text-neutral-300 font-bold rounded-xl"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-3 bg-[#FFD400] hover:bg-[#ffc200] text-black font-syne font-black uppercase rounded-xl shadow-lg"
+                >
+                  {editingBlogId ? 'Salva Modifiche' : 'Pubblica Articolo'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* DETAIL MODAL FOR EXAMINATION */}
       {selectedContribution && (
@@ -872,7 +1119,6 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
               </div>
             </div>
 
-            {/* Media preview */}
             {selectedContribution.mediaUrl && (
               <div className="space-y-2">
                 <span className="text-xs font-syne font-bold uppercase text-neutral-400">Media allegato</span>
@@ -882,7 +1128,6 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
               </div>
             )}
 
-            {/* Description */}
             <div className="space-y-2">
               <span className="text-xs font-syne font-bold uppercase text-neutral-400">Descrizione</span>
               <p className="text-xs text-neutral-200 bg-[#171717] p-4 rounded-2xl border border-[#222] leading-relaxed">
@@ -890,85 +1135,13 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
               </p>
             </div>
 
-            {/* Timeline history */}
-            <div className="space-y-3">
-              <span className="text-xs font-syne font-bold uppercase text-neutral-400">Cronologia & Timeline</span>
-              <div className="bg-[#171717] p-4 rounded-2xl border border-[#222] space-y-2 text-xs">
-                {selectedContribution.timeline.map((evt, idx) => (
-                  <div key={idx} className="flex items-start justify-between border-b border-[#222] pb-2 last:border-0 last:pb-0">
-                    <div>
-                      <span className="font-bold text-white block">{evt.action}</span>
-                      {evt.note && <span className="text-neutral-400 text-[11px]">Motivo: {evt.note}</span>}
-                    </div>
-                    <span className="text-[10px] text-neutral-500 font-mono">{evt.date}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Rejection input prompt if rejecting */}
-            {rejectionModalOpen && (
-              <div className="bg-red-950/20 border border-red-900/50 p-4 rounded-2xl space-y-3 animate-in fade-in">
-                <span className="text-xs font-bold text-red-300 block">Specifica il motivo del rifiuto:</span>
-                <input
-                  type="text"
-                  placeholder="Es. Contenuto non conforme o duplicato..."
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  className="w-full bg-[#171717] border border-red-900 rounded-xl px-4 py-2 text-xs text-white"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      updateStatus(selectedContribution.id, 'REJECTED', rejectionReason || 'Non specificato');
-                      setRejectionModalOpen(false);
-                      setRejectionReason('');
-                    }}
-                    className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl"
-                  >
-                    Conferma Rifiuto
-                  </button>
-                  <button
-                    onClick={() => setRejectionModalOpen(false)}
-                    className="px-4 py-2 bg-[#222] text-neutral-300 text-xs rounded-xl"
-                  >
-                    Annulla
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="pt-4 border-t border-[#222] flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => updateStatus(selectedContribution.id, 'IN_REVIEW')}
-                  className="px-4 py-2.5 bg-blue-950/40 border border-blue-800 text-blue-300 rounded-xl text-xs font-bold hover:bg-blue-900/50"
-                >
-                  Metti in revisione
-                </button>
-                <button
-                  onClick={() => updateStatus(selectedContribution.id, 'ARCHIVED')}
-                  className="px-4 py-2.5 bg-[#1C1C1C] border border-[#333] text-neutral-300 rounded-xl text-xs font-bold hover:bg-[#262626]"
-                >
-                  Archivia
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setRejectionModalOpen(true)}
-                  className="px-4 py-2.5 bg-red-950/40 border border-red-800 text-red-300 rounded-xl text-xs font-bold hover:bg-red-900/50"
-                >
-                  ✕ Rifiuta
-                </button>
-                <button
-                  onClick={() => updateStatus(selectedContribution.id, 'APPROVED')}
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-black font-syne font-black text-xs uppercase tracking-wider rounded-xl shadow-lg"
-                >
-                  ✓ Approva Contributo
-                </button>
-              </div>
+            <div className="pt-4 border-t border-[#222] flex justify-end gap-3">
+              <button
+                onClick={() => updateStatus(selectedContribution.id, 'APPROVED')}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-black font-syne font-black text-xs uppercase rounded-xl shadow-lg"
+              >
+                ✓ Approva Contributo
+              </button>
             </div>
 
           </div>
